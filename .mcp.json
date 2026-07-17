@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "powhttp": {
+      "type": "http",
+      "url": "http://localhost:8383/mcp"
+    },
+    "har-analyzer": {
+      "type": "http",
+      "url": "https://har-mcp.hypersolutions.co/mcp",
+      "headers": {
+        "x-api-key": "${HYPERSOLUTIONS_API_KEY}"
+      }
+    }
+  }
+}
