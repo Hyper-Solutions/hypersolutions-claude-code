@@ -85,6 +85,11 @@ Output = `(payload, headers)`. The `headers` object (`KasadaHeaders`):
 
 Returns the `x-kpsdk-cd` value. (JS ctor: `new KasadaPowInput(st, ct, domain, fc?, workTime?)`.)
 
+> **Mobile User-Agent:** when the payload was generated with a **mobile** UA, send
+> **only `st`** on `/cd` — omit `ct`, `domain`, `fc`, and `script`. Sending those
+> desktop-only fields with a mobile UA will produce an invalid POW. `work_time` may
+> still be passed optionally. (Desktop UAs keep sending the full field set above.)
+
 ### `BotIDHeaderInput` → `POST /botid`
 
 `script` (the BotID `c.js` body), `userAgent`, `ip`, `acceptLanguage`. Returns the

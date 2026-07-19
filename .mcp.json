@@ -6,10 +6,7 @@
     },
     "har-analyzer": {
       "type": "http",
-      "url": "https://har-mcp.hypersolutions.co/mcp",
-      "headers": {
-        "x-api-key": "${HYPERSOLUTIONS_API_KEY}"
-      }
+      "url": "https://har-mcp.hypersolutions.co/mcp"
     }
   }
 }

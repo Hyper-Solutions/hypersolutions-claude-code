@@ -1,7 +1,7 @@
 {
   "name": "hypersolutions",
   "displayName": "Hyper Solutions",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Integrate and debug the Hyper Solutions anti-bot API (Akamai, Incapsula, DataDome, Kasada) across the Go, Python, and JS/TS SDKs and raw REST. Bundles a request-debugging workflow: capture traffic via the powhttp MCP or analyze an exported HAR via the har-analyzer MCP, and apply a full rule set for TLS/header/cookie/client-hint fingerprint mistakes.",
   "author": {
     "name": "Hyper Solutions"
