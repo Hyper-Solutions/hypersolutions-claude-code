@@ -63,13 +63,10 @@ The bundled `har-analyzer` MCP (`.mcp.json`) is a **hosted** server
 (`https://har-mcp.hypersolutions.co/mcp`) that runs the Hyper Solutions fingerprint rule
 set against an exported HAR. It's the fastest way to triage a HAR a customer sends you.
 
-1. Set your API key in the environment Claude Code runs in:
-   ```bash
-   export HYPERSOLUTIONS_API_KEY=<your-key>   # from https://hypersolutions.co/keys
-   ```
-   The config sends it as the `x-api-key` header; any valid Hyper Solutions key works.
-2. Ask Claude to analyze a `.har` file — it calls the `analyze_har` tool and reports the
-   findings (severity, category, fix) plus the detected anti-bot product.
+Ask Claude to analyze a `.har` file — it calls the `analyze_har` tool and reports the
+findings (severity, category, fix) plus the detected anti-bot product. The `har-analyzer`
+server is OAuth-protected: Claude Code prompts you to sign in with your Hyper Solutions
+account the first time it connects (manage it with `/mcp`).
 
 A HAR lacks the true wire header order and TLS fingerprint, so a clean result doesn't
 rule out those — prefer powhttp for the live wire. See `references/har-analyzer-mcp.md`.
@@ -103,7 +100,7 @@ key. Keep the valuable, evolving detection logic out of it. The rule when editin
 - **Static files** (`SKILL.md`, `references/`, `scripts/`) hold only **how to use the API**
   and **generally-known** browser-fingerprinting facts (header order, sec-ch-ua GREASE,
   public cookie/endpoint names). This is documentation, not the moat.
-- **The har-analyzer MCP** (server-side, API-key-gated) holds the **exhaustive and
+- **The har-analyzer MCP** (server-side) holds the **exhaustive and
   current** detection rules — exact thresholds, per-product flow checks, anything that
   changes as detection evolves. New or updated detection logic goes **there, not here**.
 - Don't add: reverse-engineering of an anti-bot's internals (obfuscation/VM/payload

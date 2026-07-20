@@ -22,15 +22,15 @@ This plugin registers the server as **`har-analyzer`** (see `.mcp.json`), so its
 appears namespaced as **`mcp__plugin_hypersolutions_har-analyzer__analyze_har`**. It's
 a remote streamable-HTTP server at `https://har-mcp.hypersolutions.co/mcp`.
 
-**Auth:** the server authenticates with any valid Hyper Solutions API key. The bundled
-config sends it via the `x-api-key` header from the **`HYPERSOLUTIONS_API_KEY`**
-environment variable — the user must have that set in the environment Claude Code runs
-in (get a key at https://hypersolutions.co/keys). If the tool returns `access denied`,
-the key is missing or invalid.
+**Auth:** the server is OAuth-protected (MCP OAuth 2.0; authorization server
+`hypersolutions.co`, scope `mcp`) — no API key or environment variable. Claude Code
+prompts you to sign in with your Hyper Solutions account the first time the server
+connects; manage it later with `/mcp`. Tokens refresh automatically afterward.
 
-> If the `analyze_har` tool isn't available, the server isn't registered or the API key
-> env var isn't set. You can still analyze the HAR by hand — apply
-> `references/request-rules.md` to the entries yourself.
+> If the `analyze_har` tool isn't available, either the server isn't registered or you
+> haven't completed the OAuth sign-in — calls return `401 Unauthorized` until you
+> authenticate. You can still analyze the HAR by hand — apply `references/request-rules.md`
+> to the entries yourself.
 
 ## The tool
 
