@@ -36,7 +36,22 @@ Extract from the `dd` object: `cid`, `hsh`, `s`, `b`.
    `parseInterstitialDeviceCheckUrl(body, cookie, referer)` (JS, returns `null` on
    failure). Result:
    `https://geo.captcha-delivery.com/interstitial/?initialCid={cid}&hash={hsh}&cid={datadomeCookie}&referer={referer}&s={s}&b={b}&dm=cd`
-2. **GET the deviceLink**; save the HTML body.
+2. **GET the deviceLink**; save the HTML body. Then check how that page ships the
+   challenge script, because it comes in one of two forms:
+   - **Inlined:** the script is already inside the HTML. Nothing extra to fetch, leave
+     `script` unset.
+   - **Own file:** the HTML loads it with a tag like
+     `<script defer src="https://ct.captcha-delivery.com/interstitial.1.33.0.202609141.js">`.
+     Get that URL with `ParseChallengeScriptURL(html)` (Go, returns `(url, ok)`) /
+     `parse_challenge_script_url(html)` (Py) / `parseChallengeScriptUrl(html)` (JS); the
+     Python and JS helpers return `None`/`null` when the page inlines the script.
+     **GET that URL with the same HTTP client you used for the deviceLink**, so the
+     request keeps the same proxy, TLS fingerprint and headers, and pass the response
+     body as `script`.
+
+   DataDome switches between the two forms per request, so check this on every challenge
+   rather than configuring it once. It is the same `script` input that Akamai SBSD and
+   Incapsula reese84 already take.
 3. **Generate the payload** via `POST /interstitial`.
 4. **POST the payload** to `https://geo.captcha-delivery.com/interstitial/` — the payload
    is an **already-concatenated form-data string** (match browser header order).
@@ -49,8 +64,9 @@ Extract from the `dd` object: `cid`, `hsh`, `s`, `b`.
 ### `DataDomeInterstitialInput` fields
 
 `userAgent` (Chrome Windows/macOS), `deviceLink` (from step 1), `html` (deviceLink GET body),
+`script` (**optional**, the challenge script body from step 2; omit it when the page inlines the script),
 `acceptLanguage`, `ip`. Returns `{payload, headers}` — replay the returned `headers` on
-subsequent requests. (JS ctor: `new InterstitialInput(userAgent, deviceLink, html, ip, acceptLanguage)`.)
+subsequent requests. (JS ctor: `new InterstitialInput(userAgent, deviceLink, html, ip, acceptLanguage, script?)`.)
 
 ---
 
@@ -63,7 +79,20 @@ Extract from the `dd` object: `cid`, `hsh`, `t`, `s`, `e`.
    `ParseSliderDeviceCheckLink(body, datadomeCookie, referer)` /
    `parse_slider_device_check_link(...)` / `parseSliderDeviceCheckUrl(...)`. Result:
    `https://geo.captcha-delivery.com/captcha/?initialCid={cid}&hash={hsh}&cid={datadomeCookie}&t={t}&referer={referer}&s={s}&e={e}&dm=cd`
-2. **GET the deviceLink**; save the HTML. Extract the puzzle image URL from it:
+2. **GET the deviceLink**; save the HTML. Two things come out of it.
+
+   **a. The challenge script**, shipped in one of two forms (same as the interstitial):
+   - **Inlined:** already inside the HTML, nothing to fetch, leave `script` unset.
+   - **Own file:** loaded by a tag like
+     `<script defer src="https://ct.captcha-delivery.com/captcha.1.34.0.202609141.js">`.
+     `ParseChallengeScriptURL(html)` (Go) / `parse_challenge_script_url(html)` (Py) /
+     `parseChallengeScriptUrl(html)` (JS) returns it. **GET that URL with the same HTTP
+     client you used for the deviceLink**, keeping the same proxy, TLS fingerprint and
+     headers, and pass the response body as `script`.
+
+   DataDome picks the form per request, so check every challenge.
+
+   **b. The puzzle image URL:**
    - Newer: JS var `captchaChallengePath: 'https://dd.prod.captcha-delivery.com/image/.../hash.jpg'`
      (regex `captchaChallengePath:\s*['"]([^'"]+\.jpg)['"]`); derive the piece by
      replacing `.jpg` → `.frag.png`.
@@ -78,8 +107,11 @@ Extract from the `dd` object: `cid`, `hsh`, `t`, `s`, `e`.
 
 ### `DataDomeSliderInput` fields
 
-`userAgent`, `deviceLink`, `html`, `puzzle` (base64 jpg), `piece` (base64 frag.png),
-`parentUrl`, `acceptLanguage`, `ip`. Returns `{payload, headers}`.
+`userAgent`, `deviceLink`, `html`, `script` (**optional**, the challenge script body from
+step 2a; omit it when the page inlines the script), `puzzle` (base64 jpg), `piece`
+(base64 frag.png), `parentUrl`, `acceptLanguage`, `ip`. Returns `{payload, headers}`.
+
+> JS ctor order: `new SliderInput(userAgent, deviceLink, html, puzzle, piece, parentUrl, ip, acceptLanguage, script?)`.
 
 ---
 
