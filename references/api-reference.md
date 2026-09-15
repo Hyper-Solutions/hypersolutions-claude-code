@@ -54,6 +54,8 @@ field styles: **Go** = struct with `json` tags; **Python** = keyword args (snake
 ```typescript
 new SbsdInput(index, uuid, o_cookie, pageUrl, userAgent, script, ip, acceptLanguage)
 new Reese84Input(userAgent, ip, acceptLanguage, pageUrl, script, scriptUrl, pow?)
+new InterstitialInput(userAgent, deviceLink, html, ip, acceptLanguage, script?)
+new SliderInput(userAgent, deviceLink, html, puzzle, piece, parentUrl, ip, acceptLanguage, script?)
 new TagsInput(userAgent, ddk, referer, type, ip, acceptLanguage, version, cid?)
 new KasadaPowInput(st, ct, domain, fc?, workTime?)
 new BotIDHeaderInput(script, userAgent, ip, acceptLanguage)
