@@ -21,7 +21,7 @@ Generate endpoints return JSON with a common shape (fields present vary by endpo
 | Field | Meaning |
 |---|---|
 | `payload` | The generated string (sensor / cookie / token). Kasada `/payload` = base64 (decode it) |
-| `context` | Akamai sensor context to feed the next call |
+| `context` | Akamai sensor / SBSD context to feed the next call |
 | `error` | Non-empty on failure. SDKs surface as `api returned with: <error>` |
 | `swhanedl` | Situational (Incapsula utmvc) |
 | `headers` | Client-hint headers to **replay on the target**: `sec-ch-device-memory`, `sec-ch-ua-mobile`, `sec-ch-ua-arch`, `sec-ch-ua-platform`, `sec-ch-ua-model`, `sec-ch-ua-full-version-list` |
@@ -35,7 +35,7 @@ hardcode the values in `headers` — always replay what the API returns.
 |---|---|---|---|---|
 | Akamai sensor | `GenerateSensorData` | `generate_sensor_data` | `generateSensorData` | `{payload, context}` |
 | Akamai pixel | `GeneratePixelData` | `generate_pixel_data` | `generatePixelData` | `payload` |
-| Akamai SBSD | `GenerateSbsdData` | `generate_sbsd_data` | `generateSbsdPayload` | `payload` |
+| Akamai SBSD | `GenerateSbsdData` | `generate_sbsd_data` | `generateSbsdPayload` | `{payload, context}` |
 | Incapsula reese84 | `GenerateReese84Sensor` | `generate_reese84_sensor` | `generateReese84Sensor` | `payload` |
 | Incapsula utmvc | `GenerateUtmvcCookie` | `generate_utmvc_cookie` | `generateUtmvcCookie` | `{payload, swhanedl}` |
 | Kasada payload | `GenerateKasadaPayload` | `generate_kasada_payload` | `generateKasadaPayload` | `{payload, headers}` |
@@ -52,7 +52,7 @@ field styles: **Go** = struct with `json` tags; **Python** = keyword args (snake
 ### JS constructor arg-order warnings (differ from field order)
 
 ```typescript
-new SbsdInput(index, uuid, o_cookie, pageUrl, userAgent, script, ip, acceptLanguage)
+new SbsdInput(index, uuid, o_cookie, pageUrl, userAgent, script, ip, acceptLanguage, context?)
 new Reese84Input(userAgent, ip, acceptLanguage, pageUrl, script, scriptUrl, pow?)
 new InterstitialInput(userAgent, deviceLink, html, ip, acceptLanguage, script?)
 new SliderInput(userAgent, deviceLink, html, puzzle, piece, parentUrl, ip, acceptLanguage, script?)

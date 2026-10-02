@@ -76,9 +76,13 @@ handle all of this for you. Full detail + code: `references/authentication.md`.
 
 | Language | Package | Construct |
 |---|---|---|
-| Go | `github.com/Hyper-Solutions/hyper-sdk-go/v2` | `hyper.NewSession("api-key")` |
+| Go | `github.com/Hyper-Solutions/hyper-sdk-go/v3` | `hyper.NewSession("api-key")` |
 | Python | `hyper-sdk` (PyPI) | `Session("api-key")` / `SessionAsync("api-key")` |
 | JS/TS | `hyper-sdk-js` (npm) | `new Session("api-key")` |
+
+Minimum versions for the Akamai SBSD `context` field (`references/akamai.md`): Go **v3.0.0**
+(the import path is now `/v3`; v2 is deprecated), Python **3.0.0**, JS/TS **4.0.0**;
+`hyper-sdk-playwright` **1.0.0-beta.15** handles it automatically.
 
 ```go
 // Go

@@ -52,8 +52,10 @@ would have at that step.
 | Second sensor rejected | Sent `script` again, or omitted `context` | After the first sensor: omit `script`, include the returned `context` |
 | Passes then blocks on login/checkout | `_abck` invalidated by the protected action | Regenerate a sensor; use `IsCookieInvalidated` to detect and post 1 more |
 | `428` won't clear | Wrong `provider` flow, or submitted before the mandatory wait | Branch on `provider`; **wait the full `chlg_duration`** (crypto/adaptive); success = `sec_cpt` has `~3~` |
-| `429 {"t":...}` mid-session | SBSD block | Reuse stored path/UUID/script; POST fresh payload to `/[path]?t=<token>` |
+| `429 {"t":...}` mid-session | SBSD block | Reuse stored path/UUID + last `context`; POST fresh payload to `/[path]?t=<token>` |
 | SBSD passive not working | Only posted index 0 | Post **index 0 then index 1**; use `sbsd_o` or `bm_so` for `o` |
+| SBSD call after the first rejected | Sent `script` and `context` together (mutually exclusive) | Only the first SBSD call sends `script`; every call after it sends the returned `context` and no `script` |
+| SBSD `context` field unknown to the SDK | SDK too old | Go `hyper-sdk-go/v3` v3.0.0 (import path `/v3`; v2 deprecated), Python `hyper-sdk` 3.0.0, JS/TS `hyper-sdk-js` 4.0.0, `hyper-sdk-playwright` 1.0.0-beta.15 |
 | `version` seems wrong | Set to something other than `"3"` (e.g. a stale `"2"` from an old SDK comment) | Use `"3"` — it's basically always `3` |
 | Script path 404 / parser empty | Hardcoded or stale path | Parse the path from **every** page response; never hardcode |
 
