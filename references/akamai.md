@@ -161,14 +161,14 @@ SBSD appears in **three modes**:
 
 **(a) Passive / basic** — page loads normally but includes an SBSD script with a `v`
 UUID and **no `t`**: `<script src="/6mG.../J1CmB4HUQ?v=99b02ce6-...">`. Extract path+UUID
-(regex `([a-z\d/\-_\.]+)\?v=([^"'&]+)`), GET the script, then **post two sensors, index 0
+(regex `([a-z\d/\-_\.]+)\?v=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})`), GET the script, then **post two sensors, index 0
 then index 1**, each to `POST /[path]` body `{"body":"<payload>"}`. The index 0 call sends
 `script`; the index 1 call sends the `context` it returned and no `script`. Continue
 normally.
 
 **(b) Hard challenge** — initial GET returns a blocking challenge page whose script has
 **both** `v` and `t`: `?v=99b02ce6-...&t=183446612`. Extract with
-`([a-z\d/\-_\.]+)\?v=(.*?)(?:&.*?t=(.*?))?["']`. GET `/[path]?v=[v]&t=[t]` → generate one
+`([a-z\d/\-_\.]+)\?v=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:&[^"']*?\bt=([^"'&]+))?[^"']*["']`. GET `/[path]?v=[v]&t=[t]` → generate one
 payload (`o` = existing `sbsd_o`, else `bm_so`) → `POST /[path]?t=[t]` body
 `{"body":"<payload>"}` → GET `/` returns real content. (Single sensor; `index` omitted. It
 is the first SBSD call, so it sends `script`; keep the returned `context` for later calls.)
