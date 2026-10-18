@@ -188,7 +188,7 @@ cookies, IP), not in the generated payload. The most common root causes, in orde
 | `references/akamai.md` | Sensor flow (`_abck`), sec-cpt 428 (crypto/behavioral/adaptive), SBSD 429 (passive/hard/429), pixel, cookie-validity helpers |
 | `references/incapsula.md` | reese84, reese84 dynamic ("Pardon Our Interruption" + PoW), utmvc, captcha block |
 | `references/datadome.md` | interstitial, slider, tags, the `dd` object, `t:'bv'` hard block |
-| `references/kasada.md` | Flow 1 (block page) & Flow 2 (`/fp`), `/payload` `/cd` `/botid`, POW freshness, `/mfc`, Vercel BotID, supported UAs |
+| `references/kasada.md` | Flow 1 (block page) & Flow 2 (`/fp`), `/payload` `/cd` `/botid`, POW freshness, `/mfc`, Vercel BotID, supported UAs, mobile UA generation |
 | `references/api-reference.md` | Every endpoint, every input/output field, per-SDK signatures, raw-HTTP contract, compression, response envelope |
 | `references/powhttp-mcp.md` | Live request-capture debugging via the powhttp MCP (find_requests / get_tls_connection / get_http2_streams) |
 | `references/har-analyzer-mcp.md` | Automated HAR fingerprint analysis via the har-analyzer MCP (`analyze_har`) |
