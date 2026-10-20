@@ -129,6 +129,24 @@ QkZWEmcDRUBEDloaAg8GABpSDxVEX1JfXBRZRQF5VRoJFFozUQtXBABQGwEPHA==
 QkZWEmcDRUBEDloaAg8GABpRDxVEX1JfXBRZRQF5VRoJFFozUQtXBABRGwEPHA==
 ```
 
+### Mobile app user-agent generation
+
+On the native mobile flow the `user-agent` is **not a readable UA string**. The Kasada 2.x mobile SDK sends a 32-char hex **MD5** of the device and app identity:
+```
+<osVersion> / <bundleId> <appVersion>
+```
+` / ` separates the OS version and bundle id; a single space precedes the app version.
+
+| Component | iOS | Android |
+|---|---|---|
+| `osVersion` | `UIDevice.systemVersion` (e.g. `18.0.1`) | `Build.VERSION.SDK_INT` (e.g. `34`) |
+| `bundleId` | `CFBundleIdentifier` (e.g. `com.example.app`) | package name |
+| `appVersion` | `CFBundleShortVersionString` (e.g. `9.15.0`) | `versionName` |
+
+Generate it locally (no API call) with `GenerateUserAgent` (Go `kasada`) / `generate_kasada_user_agent` (Py) / `generateKasadaUserAgent` (JS). It is pure device+app identity with no per-request nonce, so it is stable for a given triple. Example: `18.0.1 / com.example.app 9.15.0` → `7016adc4ba8d433533954ebad33be424`. Available in hyper-sdk-go v3.1.0, hyper-sdk-js 4.1.0, and hyper_sdk 3.1.0.
+
+> Use the real OS version, bundle id and app version for the build you emulate. One different byte in any field changes the whole hash, and a UA that does not match the rest of your mobile fingerprint can get the request flagged.
+
 ---
 
 ## Kasada status-code summary
