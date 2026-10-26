@@ -26,7 +26,8 @@ If 2–5 aren't all "yes", fix those first — see `references/tls-and-headers.m
 | Blocked immediately, never passes | `sec-ch-ua` / UA / platform version mismatch, or datacenter IP | Align UA + `sec-ch-ua` + `sec-ch-ua-platform`; try residential/mobile IP |
 | `priority` header in wrong position / subtle order bug | `cookie` missing from your header-order list | Add `cookie` to the header-order key even when sending no cookies |
 | Requests fail with a length/duplicate error | Manually set `Content-Length` | Never set it — let the client compute it |
-| DataDome/others reject despite correct UA | Hardcoded `sec-ch-ua-full-version-list` | Replay the `headers` object the API returns; never hardcode it |
+| DataDome/others reject despite correct UA | Hardcoded `sec-ch-ua-full-version-list` | Send the client hints the API returns (`headers`; `clientHints` on Kasada); never hardcode them |
+| Blocked after adding client hints | Sending every hint on every request, or high-entropy hints the site never asked for | `sec-ch-ua`, `-mobile`, `-platform` always; others only when the origin's `Accept-CH` lists them; cross-origin requests only the three |
 | Large-body request rejected or slow | Uncompressed utmvc/Kasada payload | Compress (zstd/gzip/br) + set `content-encoding`; SDKs auto-compress > 1000 bytes |
 | `missing api key` / signature errors | Missing `x-api-key`, or expired/wrong JWT | Set `x-api-key`; check JWT `exp` (short-lived) and the signing key; see `authentication.md` |
 
@@ -53,9 +54,14 @@ would have at that step.
 | Passes then blocks on login/checkout | `_abck` invalidated by the protected action | Regenerate a sensor; use `IsCookieInvalidated` to detect and post 1 more |
 | `428` won't clear | Wrong `provider` flow, or submitted before the mandatory wait | Branch on `provider`; **wait the full `chlg_duration`** (crypto/adaptive); success = `sec_cpt` has `~3~` |
 | `429 {"t":...}` mid-session | SBSD block | Reuse stored path/UUID + last `context`; POST fresh payload to `/[path]?t=<token>` |
-| SBSD passive not working | Only posted index 0 | Post **index 0 then index 1**; use `sbsd_o` or `bm_so` for `o` |
+| SBSD passive not working | Only posted one payload | Post **two**: the first with `script`, the second with the returned `context`; use `sbsd_o` or `bm_so` for `o` |
+| SBSD hard block fails after earlier SBSD calls | Sent the old `context` on the `t` POST | A hard block always starts a new chain: `script`, empty context |
+| `invalid scriptUrl, expected the absolute src of the SBSD script tag` | `scriptUrl` is not the SBSD script src | Pass the script tag's full src, query included, as the page loaded it |
 | SBSD call after the first rejected | Sent `script` and `context` together (mutually exclusive) | Only the first SBSD call sends `script`; every call after it sends the returned `context` and no `script` |
-| SBSD `context` field unknown to the SDK | SDK too old | Go `hyper-sdk-go/v3` v3.0.0 (import path `/v3`; v2 deprecated), Python `hyper-sdk` 3.0.0, JS/TS `hyper-sdk-js` 4.0.0, `hyper-sdk-playwright` 1.0.0-beta.15 |
+| SBSD `context` / `scriptUrl`, telemetry or client hints unknown to the SDK | SDK too old | Go `hyper-sdk-go/v4` v4.0.0, Python `hyper-sdk` 4.0.0, JS/TS `hyper-sdk-js` 5.0.0, `hyper-sdk-playwright` 1.0.0-beta.16 (the SBSD `context` alone: Go v3.0.0, Python 3.0.0, JS 4.0.0) |
+| SDK call returns an object, old code unpacks a tuple | Upgraded to the result-object majors | Read `res.Payload` / `res.payload`, `res.Context` / `res.context`, client hints from the result |
+| Protected API call `403` with an `Akamai-BM-Telemetry` header | Reused header or context, missing or re-encoded `j`, `bm_sz` not the page-load value (`e` mismatch), wrong `scriptUrl` | Fresh `/v1/telemetry` per request, chained `context`, `j` verbatim from get_params, page cookies, full Akamai script URL (`references/akamai.md` section 5) |
+| `/v1/telemetry` rejects with `missing scriptUrl` / `invalid scriptUrl` | Sent the page URL or nothing | The full Akamai script URL, no query string |
 | `version` seems wrong | Set to something other than `"3"` (e.g. a stale `"2"` from an old SDK comment) | Use `"3"` — it's basically always `3` |
 | Script path 404 / parser empty | Hardcoded or stale path | Parse the path from **every** page response; never hardcode |
 
@@ -91,6 +97,8 @@ would have at that step.
 | Works then breaks later | Tokens/cookies expired | Re-solve the whole flow; refresh proactively; keep `x-kpsdk-ct` current |
 | Flow 2 fails but Flow 1 works | Referer not set to `/fp` | Set referer to the `/fp` URL on ips.js and `/tl` requests |
 | BotID (`x-is-human`) rejected | Stale token or IP changed | Re-GET `c.js`, regenerate `x-is-human`; regenerate on 429 or IP change |
+| `/payload` returns 500 "refusing payload because strict was set" | `strict` is on and the script has a signal the API cannot identify yet | Expected with `strict`: retry later or fall back; drop `strict` to get the literal-filled payload |
+| Client hints ended up in the `x-kpsdk-*` set (or vice versa) | Mixed Kasada's `headers` and `clientHints` | `headers` = `x-kpsdk-*` (always sent); client hints separately, only when asked for |
 
 ## When to escalate to Hyper Solutions
 

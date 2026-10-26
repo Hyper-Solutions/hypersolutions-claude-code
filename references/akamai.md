@@ -7,6 +7,8 @@ Endpoints (host `https://akm.hypersolutions.co`):
 | Sensor (`_abck`) | `POST /v2/sensor` | `GenerateSensorData` | `generate_sensor_data` | `generateSensorData` |
 | Pixel | `POST /pixel` | `GeneratePixelData` | `generate_pixel_data` | `generatePixelData` |
 | SBSD | `POST /sbsd` | `GenerateSbsdData` | `generate_sbsd_data` | `generateSbsdPayload` |
+| Telemetry header | `POST /v1/telemetry` | `GenerateTelemetry` | `generate_telemetry` | `generateTelemetry` |
+| get_params path | `POST /v1/telemetry/params` | `GetTelemetryParams` | `get_telemetry_params` | `getTelemetryParams` |
 
 Identify Akamai by the `_abck` + `bm_sz` cookies and a dynamic
 `<script src="/xxxx/yyyy/...">` near the end of the body. Requires a Chrome UA (Windows recommended; macOS also supported).
@@ -50,7 +52,8 @@ path validates the `_abck` cookie, which the site then checks on protected actio
 | `ip` | `ip` | Client/proxy IP (required) |
 | `context` | `context` | Empty on first request; the returned `context` afterward |
 
-Returns `(payload, context)` — `payload` is the sensor string, `context` feeds the next call.
+Returns a `SensorResult`: `Payload`/`payload` is the sensor string, `Context`/`context` feeds
+the next call, `ClientHints`/`client_hints`/`clientHints` are the device's client hints.
 
 ### Cookie-validity helpers
 
@@ -123,12 +126,12 @@ consistent throughout.
 ## 3. SBSD (State Based Scraping Detection)
 
 `POST /sbsd`. Submit each generated payload to the target as `{"body":"<generated>"}`.
+Returns an `SbsdResult` (`payload`, `context`, client hints).
 
 ### `SbsdInput` fields
 
 | Field (Go) | Python | JS ctor arg | Meaning |
 |---|---|---|---|
-| `Index` (int) | `index` | `index` | Sensor index; post 0 before 1 |
 | `UserAgent` | `user_agent` | `userAgent` | Chrome Windows/macOS UA |
 | `Uuid` | `uuid` | `uuid` | The `v` UUID from the SBSD script URL |
 | `PageUrl` | `page_url` | `pageUrl` | Page URL |
@@ -137,11 +140,17 @@ consistent throughout.
 | `AcceptLanguage` | `accept_language` | `acceptLanguage` | Accept-Language |
 | `IP` | `ip` | `ip` | Client/proxy IP |
 | `Context` | `context` | `context` (optional) | Empty on the first call; the returned `context` afterward |
-
-Returns `(payload, context)`: `payload` is the SBSD payload, `context` feeds the next call.
+| `ScriptUrl` | `script_url` | `scriptUrl` (optional) | Absolute src of the SBSD script tag, **query included**, exactly as the page loaded it (`...?v=<uuid>`, plus `&t=...` on a hard block) |
 
 > JS `SbsdInput` constructor order differs from field order:
-> `new SbsdInput(index, uuid, o_cookie, pageUrl, userAgent, script, ip, acceptLanguage, context?)`.
+> `new SbsdInput(uuid, o_cookie, pageUrl, userAgent, script, ip, acceptLanguage, context?, scriptUrl?)`.
+
+**`scriptUrl`** (optional, recommended): the SBSD fingerprint includes signals about the
+script itself (its resource-timing entry, and whether it sits on a block page with a `t`
+parameter). With `scriptUrl` the payload carries the script's own values; without it the API
+uses defaults. When set it must be an http(s) URL with a host and path, else the API answers
+`invalid scriptUrl, expected the absolute src of the SBSD script tag`. Fetch the script from
+that same URL. SDKs: Go v4.0.0 `ScriptUrl`, Python 4.0.0 `script_url`, JS 5.0.0 `scriptUrl`.
 
 **`script` / `context` rule.** The **first** SBSD call of a session sends `script` and
 **no** `context`; its response returns a `context`. **Every call after it sends that
@@ -150,28 +159,29 @@ carrying both is rejected. This keeps you from re-uploading the script (roughly 
 megabyte) on every call.
 
 Passing the context **improves SBSD success rates**. It is optional today and becomes
-**mandatory soon**, so wire it up now. `index` is unaffected and still works as before.
-
-Minimum SDK versions: Go `hyper-sdk-go/v3` **v3.0.0** (the import path is now
-`github.com/Hyper-Solutions/hyper-sdk-go/v3`; v2 is deprecated), Python `hyper-sdk`
-**3.0.0**, JS/TS `hyper-sdk-js` **4.0.0**. `hyper-sdk-playwright` **1.0.0-beta.15**
-handles the context automatically.
+**mandatory soon**, so wire it up now. The current SDKs (Go v4, Python 4.0.0, JS 5.0.0) have
+**no `index`**: an empty context starts a chain (the fingerprint payload), a non-empty one
+chains events. A **hard block** (an SBSD POST with a `t` parameter) always starts a new
+chain: send `script` and an **empty** context, never one from an earlier call. (The raw API
+still reads `index` only when no context is sent.) `hyper-sdk-playwright` handles all of
+this automatically.
 
 SBSD appears in **three modes**:
 
 **(a) Passive / basic** — page loads normally but includes an SBSD script with a `v`
 UUID and **no `t`**: `<script src="/6mG.../J1CmB4HUQ?v=99b02ce6-...">`. Extract path+UUID
-(regex `([a-z\d/\-_\.]+)\?v=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})`), GET the script, then **post two sensors, index 0
-then index 1**, each to `POST /[path]` body `{"body":"<payload>"}`. The index 0 call sends
-`script`; the index 1 call sends the `context` it returned and no `script`. Continue
-normally.
+(regex `([a-z\d/\-_\.]+)\?v=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})`), GET the script, then **post two payloads**,
+each to `POST /[path]` body `{"body":"<payload>"}`. The first call sends `script` and no
+context (the fingerprint); the second sends the `context` it returned and no `script`. Pass
+the script tag's full src as `scriptUrl` on both. Continue normally.
 
 **(b) Hard challenge** — initial GET returns a blocking challenge page whose script has
 **both** `v` and `t`: `?v=99b02ce6-...&t=183446612`. Extract with
 `([a-z\d/\-_\.]+)\?v=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:&[^"']*?\bt=([^"'&]+))?[^"']*["']`. GET `/[path]?v=[v]&t=[t]` → generate one
 payload (`o` = existing `sbsd_o`, else `bm_so`) → `POST /[path]?t=[t]` body
-`{"body":"<payload>"}` → GET `/` returns real content. (Single sensor; `index` omitted. It
-is the first SBSD call, so it sends `script`; keep the returned `context` for later calls.)
+`{"body":"<payload>"}` → GET `/` returns real content. (Single payload. A hard block always
+starts a new chain: send `script`, an empty context, and the full src with `t` as
+`scriptUrl`; keep the returned `context` for later calls.)
 
 **(c) 429 block** — a protected call returns **HTTP 429** with body `{"t":"183446612"}`
 (token only). React: extract `t`; reuse the **stored** script path, `v` UUID, and the
@@ -201,9 +211,67 @@ Parse helpers:
 
 ---
 
+## 5. Akamai-BM-Telemetry header
+
+Some sites protect their **API host** with an `Akamai-BM-Telemetry` request header instead
+of a sensor post (first seen on Paylogic). The page loads the normal Akamai script, but the
+script attaches a freshly built header to every protected XHR/fetch call.
+
+**Recognise it:** protected API calls carry
+`Akamai-BM-Telemetry: a=<_abck id>&&&e=<bm_sz>&&&sensor_data=<base64>&&&j=<j>`; there is
+**no** `sensor_data` POST to the script URL; the page makes one
+`GET /_bm/get_params?type=web-jsto&v=<tag>` whose JSON has a `j`; the protected host answers
+**403** without a valid header. (`a` is only filled when the `_abck` cookie's second field is
+`-1`.)
+
+**Flow:**
+1. Load the page, parse and GET the Akamai script as in section 1 (keep the script URL).
+2. `POST /v1/telemetry/params` with `pageUrl` and `script` (or a `context`) → `payload` = the
+   get_params path exactly as the browser requests it (raw tag, `+ / =` **not** encoded:
+   request it as returned) and a `context` that replaces the script on the first header. Not
+   counted as usage.
+3. `GET <page origin><path>` **once per session** with the page's cookies; keep `j`
+   **verbatim** (still URL-encoded, e.g. `AAQAAAAG%2f%2f...`).
+4. Before **every** protected request: `POST /v1/telemetry` with the sensor fields + `j` and
+   the previous `context` (first call: the context from step 2, no script) → send `payload`
+   verbatim as `Akamai-BM-Telemetry`, keep the new `context`. **Never reuse a header.**
+
+`/v1/telemetry` input = the `SensorInput` fields (`abck`, `bmsz`, `pageUrl`, `scriptUrl`,
+`userAgent`, `acceptLanguage`, `ip`, `script` or `context`) plus optional `j`; no `version`
+needed (`"1.75"`/`"2"` are rejected: v3 dynamic scripts only). `scriptUrl` must be the
+full Akamai script URL, no query. Output: `payload` (the header value), `context`, client
+hints (`headers`).
+
+SDKs (Go v4.0.0 / Python 4.0.0 / JS 5.0.0):
+- Go: `session.GetTelemetryParams(ctx, &hyper.TelemetryParamsInput{PageUrl, Script})` →
+  `.Path`, `.Context`; `session.GenerateTelemetry(ctx, &hyper.TelemetryInput{SensorInput:
+  hyper.SensorInput{...Context}, J: j})` → `.Header`, `.Context`, `.ClientHints`.
+- Python: `get_telemetry_params(TelemetryParamsInput(page_url, script))` → `.path`,
+  `.context`; `generate_telemetry(TelemetryInput(abck=, bmsz=, page_url=, user_agent=, ip=,
+  accept_language=, context=, script="", script_url=, j=))` → `.header`, `.context`.
+- JS: `getTelemetryParams(session, new TelemetryParamsInput(pageUrl, script))`;
+  `generateTelemetry(session, new TelemetryInput(abck, bmsz, pageUrl, userAgent, ip,
+  acceptLanguage, context, script, scriptUrl, j))` → `{header, context, clientHints}`.
+- `hyper-sdk-playwright` 1.0.0-beta.16: `AkamaiHandler` replaces the header automatically.
+
+**Gotchas:**
+- Use the cookies the **page** holds. When the protected calls go to another host without
+  credentials (Paylogic), the browser sends that host no cookies and ignores its
+  `Set-Cookie`, so `_abck`/`bm_sz` stay the page-load values; the header's `e` must be that
+  `bm_sz`. Send the protected host no cookies either.
+- One header per request, context chained. A reused header or context fails after the
+  first calls.
+- `j` missing or re-encoded: send it exactly as get_params returned it.
+- Cross-origin protected calls also need the CORS preflight a browser sends
+  (`access-control-request-headers: akamai-bm-telemetry`, plus `authorization` when sent).
+- Working examples: `akamai-telemetry/` in hypersolutions-examples (Go, Python, Node).
+
+---
+
 ## Akamai status-code summary
 
 | Code | Meaning | Action |
 |---|---|---|
 | `428` | SEC-CPT challenge (`provider` = crypto / behavioral / adaptive) | Solve per provider; success = `sec_cpt` has `~3~` |
 | `429` with `{"t":...}` | SBSD block | Reuse stored path/UUID + last `context`; POST fresh payload to `/[path]?t=<token>` |
+| `403` on a protected API call that carries `Akamai-BM-Telemetry` | Missing, reused or invalid telemetry header | Fresh `/v1/telemetry` header per request, chained `context`, verbatim `j`, page-load `_abck`/`bm_sz`, real script URL (section 5) |
