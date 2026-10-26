@@ -184,11 +184,12 @@ starts a new chain: send `script`, an empty context, and the full src with `t` a
 `scriptUrl`; keep the returned `context` for later calls.)
 
 **(c) 429 block** — a protected call returns **HTTP 429** with body `{"t":"183446612"}`
-(token only). React: extract `t`; reuse the **stored** script path, `v` UUID, and the
-`context` returned by your last SBSD call (send that `context`, not the script); generate a
-fresh payload; `POST /[scriptPath]?t=<token>` body `{"body":"<payload>"}`; retry the
-original request. You must store path/UUID/context **before** you start making protected
-requests.
+(token only). React: extract `t`; reuse the **stored** script path, `v` UUID and script
+body; generate a fresh payload. This POST carries a `t` parameter, so it is a hard block and
+starts a **new chain**: send `script` and an **empty** context, not the context from an
+earlier call (pass the script src as `scriptUrl`). `POST /[scriptPath]?t=<token>` body
+`{"body":"<payload>"}`; keep the returned `context` for later calls; retry the original
+request. You must store path/UUID/script **before** you start making protected requests.
 
 ---
 
@@ -273,5 +274,5 @@ SDKs (Go v4.0.0 / Python 4.0.0 / JS 5.0.0):
 | Code | Meaning | Action |
 |---|---|---|
 | `428` | SEC-CPT challenge (`provider` = crypto / behavioral / adaptive) | Solve per provider; success = `sec_cpt` has `~3~` |
-| `429` with `{"t":...}` | SBSD block | Reuse stored path/UUID + last `context`; POST fresh payload to `/[path]?t=<token>` |
+| `429` with `{"t":...}` | SBSD block | Reuse stored path/UUID/script; new chain (script, empty context); POST fresh payload to `/[path]?t=<token>` |
 | `403` on a protected API call that carries `Akamai-BM-Telemetry` | Missing, reused or invalid telemetry header | Fresh `/v1/telemetry` header per request, chained `context`, verbatim `j`, page-load `_abck`/`bm_sz`, real script URL (section 5) |

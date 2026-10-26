@@ -53,7 +53,7 @@ would have at that step.
 | Second sensor rejected | Sent `script` again, or omitted `context` | After the first sensor: omit `script`, include the returned `context` |
 | Passes then blocks on login/checkout | `_abck` invalidated by the protected action | Regenerate a sensor; use `IsCookieInvalidated` to detect and post 1 more |
 | `428` won't clear | Wrong `provider` flow, or submitted before the mandatory wait | Branch on `provider`; **wait the full `chlg_duration`** (crypto/adaptive); success = `sec_cpt` has `~3~` |
-| `429 {"t":...}` mid-session | SBSD block | Reuse stored path/UUID + last `context`; POST fresh payload to `/[path]?t=<token>` |
+| `429 {"t":...}` mid-session | SBSD block | Reuse stored path/UUID/script; the `t` POST starts a new chain (script, empty context); POST fresh payload to `/[path]?t=<token>` |
 | SBSD passive not working | Only posted one payload | Post **two**: the first with `script`, the second with the returned `context`; use `sbsd_o` or `bm_so` for `o` |
 | SBSD hard block fails after earlier SBSD calls | Sent the old `context` on the `t` POST | A hard block always starts a new chain: `script`, empty context |
 | `invalid scriptUrl, expected the absolute src of the SBSD script tag` | `scriptUrl` is not the SBSD script src | Pass the script tag's full src, query included, as the page loaded it |
