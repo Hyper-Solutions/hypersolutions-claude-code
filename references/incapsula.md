@@ -105,7 +105,7 @@ SDK dynamic-parse errors (Go): `ErrReeseScriptNotFound`, `ErrNotInterruptionPage
 | `SessionIds` | `session_ids` | `sessionIds` | Value of **each** cookie whose name starts with `incap_ses_` |
 | `Script` | `script` | `script` | The utmvc script contents |
 
-Returns `(payload, swhanedl)`. JS helpers: `isSessionCookie(name)` (startsWith
+Returns a result with `payload` and `swhanedl`. JS helpers: `isSessionCookie(name)` (startsWith
 `incap_ses_`) and `getSessionIds(cookies)`.
 
 > **Compress the utmvc request body** — it's large. The API supports gzip, br, deflate
