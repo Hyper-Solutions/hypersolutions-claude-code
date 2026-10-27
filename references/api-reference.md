@@ -64,7 +64,8 @@ in place of the 600 to 800 KB script.
   `script_required`, repeat the same request with `script` and without `scriptHash`. Never
   send both (400). On Akamai, `scriptHash` and `context` are also mutually exclusive: chain
   with `context` exactly as before.
-- DataDome and Incapsula reese84 require one of `script` or `scriptHash`.
+- Incapsula reese84 requires one of `script` or `scriptHash`. DataDome accepts neither, but then
+  builds the payload for a fixed bundle version, so always send one.
 
 ## Method names by SDK
 
