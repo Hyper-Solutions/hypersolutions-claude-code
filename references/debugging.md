@@ -42,6 +42,12 @@ HTTP client:
 - Wrong `scriptUrl`/`pageUrl` (must be the real URLs from the page).
 - Parser returned nothing (script path/var not found) → you passed the wrong HTML.
 
+`422 {"error":"script_required"}` is **not** one of these: the request sent a `scriptHash`
+for a script no client has sent yet. The SDKs resend the request with the script on their
+own, so it only shows up in raw HTTP integrations or in a captured trace, once per new
+script version. Do not debug it; repeat the request with `script` (see
+`references/api-reference.md`, Script hashes).
+
 Fix by logging each input right before the call and confirming it matches what a browser
 would have at that step.
 

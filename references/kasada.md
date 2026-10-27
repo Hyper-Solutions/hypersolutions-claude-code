@@ -43,7 +43,8 @@ Parse the ips.js path with `ParseScriptPath` (Go `kasada`) /
 ### Flow 2 — fingerprint endpoint (`/fp`)
 
 Standard implementation. The browser GETs `/fp?x-kpsdk-v=j-xxx` in the background, which
-returns **429** with `ips.js`. Same steps 2–6, but **set the referer to the `/fp` URL**
+returns **429** with `ips.js`. The `x-kpsdk-v` value comes from the site's `p.js`: fetch it and
+call `POST /version` (below) instead of hardcoding a version, which changes as Kasada ships. Same steps 2–6, but **set the referer to the `/fp` URL**
 on the ips.js and `/tl` requests. Then protected endpoints require:
 - **Kasada cookies** (always).
 - **`x-kpsdk-ct`** header (if the browser sends it) — from the `/tl` response, or the
@@ -83,6 +84,17 @@ returns the payload. With `strict: true` it refuses instead: HTTP `500`,
 Use it when you would rather retry later or fall back than post a payload with an
 unreadable slot. SDKs only send it when set: Go v4.0.0 `Strict`, Python 4.0.0 `strict=True`,
 JS 5.0.0 last ctor arg.
+
+### `KasadaVersionInput` → `POST /version`
+
+| Field (Go) | Python | Meaning |
+|---|---|---|
+| `PageUrl` | `page_url` | The page that loaded `p.js` (domain whitelist) |
+| `Script` | `script` | The `p.js` body, fetched with the same client and headers |
+
+Returns `version`, the `x-kpsdk-v` value (e.g. `j-1.2.797`): send it verbatim on the `/fp`
+request and in the `x-kpsdk-v` header. Not counted as usage. An ips.js (or anything that is not
+p.js) is a 400. JS: `getKasadaVersion(session, new KasadaVersionInput(pageUrl, script))`.
 
 ### `KasadaPowInput` → `POST /cd`
 

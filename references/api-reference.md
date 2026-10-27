@@ -10,7 +10,7 @@ body `application/json`, unless noted. Auth: see `references/authentication.md`.
 | Akamai | `https://akm.hypersolutions.co` | `/v2/sensor`, `/pixel`, `/sbsd`, `/v1/telemetry`, `/v1/telemetry/params` |
 | Incapsula | `https://incapsula.hypersolutions.co` | `/reese84`, `/utmvc` |
 | DataDome | `https://datadome.hypersolutions.co` | `/slider`, `/interstitial`, `/tags` |
-| Kasada | `https://kasada.hypersolutions.co` | `/payload`, `/cd`, `/botid` |
+| Kasada | `https://kasada.hypersolutions.co` | `/payload`, `/cd`, `/botid`, `/version` |
 | IP utility | `https://ip.hypersolutions.co` | `GET /ip` |
 | Usage/quota | `https://api.hypersolutions.co` | `GET /usage` (personal-org API) |
 
@@ -47,6 +47,26 @@ secure request; any other hint **only** if the site asked for it in its `Accept-
 separate API host, captcha-delivery, a tags endpoint) get only the three. Use the latest
 result's values; never hardcode them, and never send every hint on every request.
 
+### Script hashes (`scriptHash`)
+
+The endpoints that take a challenge script (DataDome `/interstitial` and `/slider`,
+Incapsula `/reese84`, Akamai `/v2/sensor`, `/v1/telemetry`, `/v1/telemetry/params` and
+`/sbsd`) also accept `scriptHash`: the lowercase hex sha256 of the script exactly as served,
+in place of the 600 to 800 KB script.
+
+- **SDKs do it for you.** Keep passing `script`. The SDK sends only the hash and sends the
+  script once more when the API answers that it has not seen it. No code changes.
+- **`422 {"error":"script_required"}` is expected**, not a bug: it means no client has sent
+  that script yet (a new script version, or one unused for 7 days). The SDK retries with the
+  script automatically, and every later request for that script needs only the hash. It is
+  not billed. Requests the API solves in a real browser also answer it to a hash-only request.
+- **Raw HTTP:** send `"scriptHash": sha256hex(script)` without `script`; on a 422
+  `script_required`, repeat the same request with `script` and without `scriptHash`. Never
+  send both (400). On Akamai, `scriptHash` and `context` are also mutually exclusive: chain
+  with `context` exactly as before.
+- Incapsula reese84 requires one of `script` or `scriptHash`. DataDome accepts neither, but then
+  builds the payload for a fixed bundle version, so always send one.
+
 ## Method names by SDK
 
 | Operation | Go (`session.…`) | Python (`session.…`) | JS/TS (`fn(session, …)`) | Result fields |
@@ -61,6 +81,7 @@ result's values; never hardcode them, and never send every hint on every request
 | Kasada payload | `GenerateKasadaPayload` | `generate_kasada_payload` | `generateKasadaPayload` | payload, headers (x-kpsdk-*), client hints |
 | Kasada POW | `GenerateKasadaPow` | `generate_kasada_pow` | `generateKasadaPow` | payload (`x-kpsdk-cd`) |
 | Kasada BotID | `GenerateBotIDHeader` | `generate_botid_header` | `generateBotIDHeader` | payload (`x-is-human`) |
+| Kasada x-kpsdk-v | `GetKasadaVersion` | `get_kasada_version` | `getKasadaVersion` | version (`x-kpsdk-v`) |
 | DataDome interstitial | `GenerateDataDomeInterstitial` | `generate_interstitial_payload` | `generateInterstitialPayload` | payload, client hints |
 | DataDome slider | `GenerateDataDomeSlider` | `generate_slider_payload` | `generateSliderPayload` | payload, client hints |
 | DataDome tags | `GenerateDataDomeTags` | `generate_tags_payload` | `generateTagsPayload` | payload, client hints |
@@ -136,6 +157,9 @@ Content-Encoding: zstd            # only if you compressed the body
   "scriptUrl": "...", "acceptLanguage": "en-US,en;q=0.9", "ip": "...",
   "context": "", "script": "<full script on first call only>" }
 ```
+
+On the first call, `"scriptHash": "<sha256 hex of the script>"` can replace `"script"`; see
+**Script hashes** above for the 422 `script_required` retry.
 
 Response:
 ```json
