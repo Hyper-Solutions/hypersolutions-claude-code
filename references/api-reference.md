@@ -10,7 +10,7 @@ body `application/json`, unless noted. Auth: see `references/authentication.md`.
 | Akamai | `https://akm.hypersolutions.co` | `/v2/sensor`, `/pixel`, `/sbsd`, `/v1/telemetry`, `/v1/telemetry/params` |
 | Incapsula | `https://incapsula.hypersolutions.co` | `/reese84`, `/utmvc` |
 | DataDome | `https://datadome.hypersolutions.co` | `/slider`, `/interstitial`, `/tags` |
-| Kasada | `https://kasada.hypersolutions.co` | `/payload`, `/cd`, `/botid` |
+| Kasada | `https://kasada.hypersolutions.co` | `/payload`, `/cd`, `/botid`, `/version` |
 | IP utility | `https://ip.hypersolutions.co` | `GET /ip` |
 | Usage/quota | `https://api.hypersolutions.co` | `GET /usage` (personal-org API) |
 
@@ -81,6 +81,7 @@ in place of the 600 to 800 KB script.
 | Kasada payload | `GenerateKasadaPayload` | `generate_kasada_payload` | `generateKasadaPayload` | payload, headers (x-kpsdk-*), client hints |
 | Kasada POW | `GenerateKasadaPow` | `generate_kasada_pow` | `generateKasadaPow` | payload (`x-kpsdk-cd`) |
 | Kasada BotID | `GenerateBotIDHeader` | `generate_botid_header` | `generateBotIDHeader` | payload (`x-is-human`) |
+| Kasada x-kpsdk-v | `GetKasadaVersion` | `get_kasada_version` | `getKasadaVersion` | version (`x-kpsdk-v`) |
 | DataDome interstitial | `GenerateDataDomeInterstitial` | `generate_interstitial_payload` | `generateInterstitialPayload` | payload, client hints |
 | DataDome slider | `GenerateDataDomeSlider` | `generate_slider_payload` | `generateSliderPayload` | payload, client hints |
 | DataDome tags | `GenerateDataDomeTags` | `generate_tags_payload` | `generateTagsPayload` | payload, client hints |
