@@ -47,6 +47,25 @@ secure request; any other hint **only** if the site asked for it in its `Accept-
 separate API host, captcha-delivery, a tags endpoint) get only the three. Use the latest
 result's values; never hardcode them, and never send every hint on every request.
 
+### Script hashes (`scriptHash`)
+
+The endpoints that take a challenge script (DataDome `/interstitial` and `/slider`,
+Incapsula `/reese84`, Akamai `/v2/sensor`, `/v1/telemetry`, `/v1/telemetry/params` and
+`/sbsd`) also accept `scriptHash`: the lowercase hex sha256 of the script exactly as served,
+in place of the 600 to 800 KB script.
+
+- **SDKs do it for you.** Keep passing `script`. The SDK sends only the hash and sends the
+  script once more when the API answers that it has not seen it. No code changes.
+- **`422 {"error":"script_required"}` is expected**, not a bug: it means no client has sent
+  that script yet (a new script version, or one unused for 7 days). The SDK retries with the
+  script automatically, and every later request for that script needs only the hash. It is
+  not billed. Requests the API solves in a real browser also answer it to a hash-only request.
+- **Raw HTTP:** send `"scriptHash": sha256hex(script)` without `script`; on a 422
+  `script_required`, repeat the same request with `script` and without `scriptHash`. Never
+  send both (400). On Akamai, `scriptHash` and `context` are also mutually exclusive: chain
+  with `context` exactly as before.
+- DataDome and Incapsula reese84 require one of `script` or `scriptHash`.
+
 ## Method names by SDK
 
 | Operation | Go (`session.…`) | Python (`session.…`) | JS/TS (`fn(session, …)`) | Result fields |
@@ -136,6 +155,9 @@ Content-Encoding: zstd            # only if you compressed the body
   "scriptUrl": "...", "acceptLanguage": "en-US,en;q=0.9", "ip": "...",
   "context": "", "script": "<full script on first call only>" }
 ```
+
+On the first call, `"scriptHash": "<sha256 hex of the script>"` can replace `"script"`; see
+**Script hashes** above for the 422 `script_required` retry.
 
 Response:
 ```json
