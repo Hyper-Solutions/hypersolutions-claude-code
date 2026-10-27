@@ -66,11 +66,23 @@ Refresh tokens proactively.
 ### `KasadaPayloadInput` → `POST /payload`
 
 `userAgent` (Chrome Windows/macOS), `ipsLink` (ips.js link parsed from the 429 page), `script`
-(ips.js body), `acceptLanguage`, `ip` (optional).
+(ips.js body), `acceptLanguage`, `ip` (optional), `strict` (optional bool, default false).
+(JS ctor: `new KasadaPayloadInput(userAgent, ipsLink, script, ip, acceptLanguage, strict?)`.)
 
-Output = `(payload, headers)`. The `headers` object (`KasadaHeaders`):
-`x-kpsdk-ct`, `x-kpsdk-dt`, `x-kpsdk-v`, `x-kpsdk-r`, `x-kpsdk-dv`, `x-kpsdk-h`,
-`x-kpsdk-fc`, `x-kpsdk-im`.
+Output = a `KasadaPayloadResult`: `payload`, `headers` (`KasadaHeaders`: `x-kpsdk-ct`,
+`x-kpsdk-dt`, `x-kpsdk-v`, `x-kpsdk-r`, `x-kpsdk-dv`, `x-kpsdk-h`, `x-kpsdk-fc`,
+`x-kpsdk-im`) and the client hints (API key `clientHints`; SDK `ClientHints` /
+`client_hints` / `clientHints`). Keep the two apart: the `x-kpsdk-*` headers go on every
+`/tl` request, the client hints only when the site asks for them (`Accept-CH`; see
+`references/api-reference.md`).
+
+**`strict`:** Kasada changes the signals `ips.js` collects. When the script has a signal the
+API cannot identify yet, the API normally fills that slot with the script's own literal and
+returns the payload. With `strict: true` it refuses instead: HTTP `500`,
+`{"error":"Unidentified signals in script; refusing payload because strict was set"}`.
+Use it when you would rather retry later or fall back than post a payload with an
+unreadable slot. SDKs only send it when set: Go v4.0.0 `Strict`, Python 4.0.0 `strict=True`,
+JS 5.0.0 last ctor arg.
 
 ### `KasadaPowInput` → `POST /cd`
 
@@ -83,7 +95,7 @@ Output = `(payload, headers)`. The `headers` object (`KasadaHeaders`):
 | `Script` | *(n/a in Py input)* | ips.js body (Go/JS) |
 | `WorkTime` (`*int`) | `work_time` (default `None`) | Optional — pre-generate POW strings |
 
-Returns the `x-kpsdk-cd` value. (JS ctor: `new KasadaPowInput(st, ct, domain, fc?, workTime?)`.)
+Returns a result whose `payload` is the `x-kpsdk-cd` value. (JS ctor: `new KasadaPowInput(st, ct, domain, fc?, workTime?)`.)
 
 > **Mobile User-Agent:** when the payload was generated with a **mobile** UA, send
 > **only `st`** on `/cd` — omit `ct`, `domain`, `fc`, and `script`. Sending those
@@ -92,8 +104,8 @@ Returns the `x-kpsdk-cd` value. (JS ctor: `new KasadaPowInput(st, ct, domain, fc
 
 ### `BotIDHeaderInput` → `POST /botid`
 
-`script` (the BotID `c.js` body), `userAgent`, `ip`, `acceptLanguage`. Returns the
-`x-is-human` value. (JS ctor: `new BotIDHeaderInput(script, userAgent, ip, acceptLanguage)`.)
+`script` (the BotID `c.js` body), `userAgent`, `ip`, `acceptLanguage`. Returns a result whose
+`payload` is the `x-is-human` value. (JS ctor: `new BotIDHeaderInput(script, userAgent, ip, acceptLanguage)`.)
 
 ---
 
@@ -143,7 +155,8 @@ On the native mobile flow the `user-agent` is **not a readable UA string**. The 
 | `bundleId` | `CFBundleIdentifier` (e.g. `com.example.app`) | package name |
 | `appVersion` | `CFBundleShortVersionString` (e.g. `9.15.0`) | `versionName` |
 
-Generate it locally (no API call) with `GenerateUserAgent` (Go `kasada`) / `generate_kasada_user_agent` (Py) / `generateKasadaUserAgent` (JS). It is pure device+app identity with no per-request nonce, so it is stable for a given triple. Example: `18.0.1 / com.example.app 9.15.0` → `7016adc4ba8d433533954ebad33be424`. Available in hyper-sdk-go v3.1.0, hyper-sdk-js 4.1.0, and hyper_sdk 3.1.0.
+Generate it locally (no API call) with `GenerateUserAgent` (Go `kasada`) / `generate_kasada_user_agent` (Py) / `generateKasadaUserAgent` (JS). It is pure device+app identity with no per-request nonce, so it is stable for a given triple. Example: `18.0.1 / com.example.app 9.15.0` → `7016adc4ba8d433533954ebad33be424`. Available since hyper-sdk-go v3.1.0, hyper-sdk-js 4.1.0, and hyper_sdk 3.1.0 (and in Go v4,
+Python 4.0.0, JS 5.0.0).
 
 > Use the real OS version, bundle id and app version for the build you emulate. One different byte in any field changes the whole hash, and a UA that does not match the rest of your mobile fingerprint can get the request flagged.
 
@@ -154,6 +167,7 @@ Generate it locally (no API call) with `GenerateUserAgent` (Go `kasada`) / `gene
 | Code | Meaning | Action |
 |---|---|---|
 | `429` | Challenge (homepage in Flow 1, `/fp` in Flow 2, or a protected endpoint when tokens expire) | Run/re-run the payload → `/tl` → POW flow |
+| API `500` "refusing payload because strict was set" | `strict` on and the script has an unidentified signal | Retry later or without `strict` |
 | `200` `{"reload":true}` on `/tl` | Challenge accepted | Save `x-kpsdk-ct`/`x-kpsdk-st` + cookies, retry original |
 
 **Final headers on protected requests:** Kasada cookies + `x-kpsdk-ct` + `x-kpsdk-cd`

@@ -7,7 +7,7 @@ body `application/json`, unless noted. Auth: see `references/authentication.md`.
 
 | Product | Host | Endpoints |
 |---|---|---|
-| Akamai | `https://akm.hypersolutions.co` | `/v2/sensor`, `/pixel`, `/sbsd` |
+| Akamai | `https://akm.hypersolutions.co` | `/v2/sensor`, `/pixel`, `/sbsd`, `/v1/telemetry`, `/v1/telemetry/params` |
 | Incapsula | `https://incapsula.hypersolutions.co` | `/reese84`, `/utmvc` |
 | DataDome | `https://datadome.hypersolutions.co` | `/slider`, `/interstitial`, `/tags` |
 | Kasada | `https://kasada.hypersolutions.co` | `/payload`, `/cd`, `/botid` |
@@ -20,30 +20,54 @@ Generate endpoints return JSON with a common shape (fields present vary by endpo
 
 | Field | Meaning |
 |---|---|
-| `payload` | The generated string (sensor / cookie / token). Kasada `/payload` = base64 (decode it) |
+| `payload` | The generated string (sensor / cookie / token / telemetry header / get_params path). Kasada `/payload` = base64 (decode it) |
 | `context` | Akamai sensor / SBSD context to feed the next call |
 | `error` | Non-empty on failure. SDKs surface as `api returned with: <error>` |
 | `swhanedl` | Situational (Incapsula utmvc) |
-| `headers` | Client-hint headers to **replay on the target**: `sec-ch-device-memory`, `sec-ch-ua-mobile`, `sec-ch-ua-arch`, `sec-ch-ua-platform`, `sec-ch-ua-model`, `sec-ch-ua-full-version-list` |
+| `headers` | The device's Accept-CH client hints (Akamai sensor/SBSD/telemetry, DataDome, Incapsula reese84). **Kasada `/payload` is different:** `headers` = the `x-kpsdk-*` values every `/tl` request sends, and the hints are in `clientHints` |
+| `clientHints` | Kasada `/payload` only: the client hints |
 
-On failure the response carries a non-empty `error`; HTTP non-200 is also an error. Never
-hardcode the values in `headers` — always replay what the API returns.
+On failure the response carries a non-empty `error`; HTTP non-200 is also an error.
+
+### Client hints
+
+24 keys, lowercase, values ready to send verbatim (do not re-quote): `sec-ch-ua`,
+`sec-ch-ua-mobile`, `sec-ch-ua-platform`, `sec-ch-ua-arch`, `sec-ch-ua-bitness`,
+`sec-ch-ua-model`, `sec-ch-ua-platform-version`, `sec-ch-ua-full-version`,
+`sec-ch-ua-full-version-list`, `sec-ch-ua-wow64`, `sec-ch-ua-form-factors`,
+`sec-ch-device-memory`, `sec-ch-dpr`, `sec-ch-viewport-width`, `sec-ch-viewport-height`,
+`device-memory`, `dpr`, `viewport-width`, `ect`, `rtt`, `downlink`,
+`sec-ch-prefers-color-scheme`, `sec-ch-prefers-reduced-motion`,
+`sec-ch-prefers-reduced-transparency`. Absent for Safari UAs on Incapsula and mobile UAs on
+Kasada. Not returned by `/pixel`, `/utmvc`, `/v1/telemetry/params`.
+
+Send them like Chrome: `sec-ch-ua`, `sec-ch-ua-mobile`, `sec-ch-ua-platform` on every
+secure request; any other hint **only** if the site asked for it in its `Accept-CH` (or
+`Critical-CH`) response header, on later requests to that origin. Cross-origin requests (a
+separate API host, captcha-delivery, a tags endpoint) get only the three. Use the latest
+result's values; never hardcode them, and never send every hint on every request.
 
 ## Method names by SDK
 
-| Operation | Go (`session.…`) | Python (`session.…`) | JS/TS (`fn(session, …)`) | Returns |
+| Operation | Go (`session.…`) | Python (`session.…`) | JS/TS (`fn(session, …)`) | Result fields |
 |---|---|---|---|---|
-| Akamai sensor | `GenerateSensorData` | `generate_sensor_data` | `generateSensorData` | `{payload, context}` |
-| Akamai pixel | `GeneratePixelData` | `generate_pixel_data` | `generatePixelData` | `payload` |
-| Akamai SBSD | `GenerateSbsdData` | `generate_sbsd_data` | `generateSbsdPayload` | `{payload, context}` |
-| Incapsula reese84 | `GenerateReese84Sensor` | `generate_reese84_sensor` | `generateReese84Sensor` | `payload` |
-| Incapsula utmvc | `GenerateUtmvcCookie` | `generate_utmvc_cookie` | `generateUtmvcCookie` | `{payload, swhanedl}` |
-| Kasada payload | `GenerateKasadaPayload` | `generate_kasada_payload` | `generateKasadaPayload` | `{payload, headers}` |
-| Kasada POW | `GenerateKasadaPow` | `generate_kasada_pow` | `generateKasadaPow` | `x-kpsdk-cd` |
-| Kasada BotID | `GenerateBotIDHeader` | `generate_botid_header` | `generateBotIDHeader` | `x-is-human` |
-| DataDome interstitial | `GenerateDataDomeInterstitial` | `generate_interstitial_payload` | `generateInterstitialPayload` | `{payload, headers}` |
-| DataDome slider | `GenerateDataDomeSlider` | `generate_slider_payload` | `generateSliderPayload` | `{payload, headers}` |
-| DataDome tags | `GenerateDataDomeTags` | `generate_tags_payload` | `generateTagsPayload` | `payload` |
+| Akamai sensor | `GenerateSensorData` | `generate_sensor_data` | `generateSensorData` | payload, context, client hints |
+| Akamai pixel | `GeneratePixelData` | `generate_pixel_data` | `generatePixelData` | payload |
+| Akamai SBSD | `GenerateSbsdData` | `generate_sbsd_data` | `generateSbsdPayload` | payload, context, client hints |
+| Akamai telemetry | `GenerateTelemetry` | `generate_telemetry` | `generateTelemetry` | header, context, client hints |
+| Akamai get_params path | `GetTelemetryParams` | `get_telemetry_params` | `getTelemetryParams` | path, context |
+| Incapsula reese84 | `GenerateReese84Sensor` | `generate_reese84_sensor` | `generateReese84Sensor` | payload, client hints |
+| Incapsula utmvc | `GenerateUtmvcCookie` | `generate_utmvc_cookie` | `generateUtmvcCookie` | payload, swhanedl |
+| Kasada payload | `GenerateKasadaPayload` | `generate_kasada_payload` | `generateKasadaPayload` | payload, headers (x-kpsdk-*), client hints |
+| Kasada POW | `GenerateKasadaPow` | `generate_kasada_pow` | `generateKasadaPow` | payload (`x-kpsdk-cd`) |
+| Kasada BotID | `GenerateBotIDHeader` | `generate_botid_header` | `generateBotIDHeader` | payload (`x-is-human`) |
+| DataDome interstitial | `GenerateDataDomeInterstitial` | `generate_interstitial_payload` | `generateInterstitialPayload` | payload, client hints |
+| DataDome slider | `GenerateDataDomeSlider` | `generate_slider_payload` | `generateSliderPayload` | payload, client hints |
+| DataDome tags | `GenerateDataDomeTags` | `generate_tags_payload` | `generateTagsPayload` | payload, client hints |
+
+Every method returns a result object (Go v4 `*XResult`, Python 4.0.0 dataclass, JS 5.0.0
+object): Go `res.Payload` / `res.ClientHints`, Python `res.payload` / `res.client_hints`, JS
+`res.payload` / `res.clientHints`. Older SDK majors returned tuples or strings.
 
 Input field names per product are in each product reference file. Per-language input
 field styles: **Go** = struct with `json` tags; **Python** = keyword args (snake_case);
@@ -52,7 +76,10 @@ field styles: **Go** = struct with `json` tags; **Python** = keyword args (snake
 ### JS constructor arg-order warnings (differ from field order)
 
 ```typescript
-new SbsdInput(index, uuid, o_cookie, pageUrl, userAgent, script, ip, acceptLanguage, context?)
+new SbsdInput(uuid, o_cookie, pageUrl, userAgent, script, ip, acceptLanguage, context?, scriptUrl?)
+new TelemetryInput(abck, bmsz, pageUrl, userAgent, ip, acceptLanguage, context, script, scriptUrl, j?)
+new TelemetryParamsInput(pageUrl, script?, context?)
+new KasadaPayloadInput(userAgent, ipsLink, script, ip, acceptLanguage, strict?)
 new Reese84Input(userAgent, ip, acceptLanguage, pageUrl, script, scriptUrl, pow?)
 new InterstitialInput(userAgent, deviceLink, html, ip, acceptLanguage, script?)
 new SliderInput(userAgent, deviceLink, html, puzzle, piece, parentUrl, ip, acceptLanguage, script?)
@@ -132,6 +159,9 @@ for every product × language, pairing the SDK with a real TLS client:
 | Python (tls-client, sync) | ✓ | ✓ | ✓ | ✓ |
 | Python (rnet/wreq, async) | ✓ (wreq) | ✓ | ✓ | ✓ |
 
+Plus `akamai-telemetry/` (Go bogdanfinn, Python tls-client, Node tlsclientwrapper): the
+Akamai-BM-Telemetry flow on a read-only endpoint.
+
 Notes: the Go azuretls vs bogdanfinn variants differ **only** in HTTP plumbing — SDK
 calls, header maps, and detection logic are identical. Same for Python tls-client (sync)
 vs rnet (async). The **Python Akamai async example actually uses `wreq`** (an
@@ -157,13 +187,14 @@ api := hyper.NewSession(os.Getenv("HYPER_API_KEY"))
 // 2. GET page, parse script path, GET script (set http.HeaderOrderKey on every request)
 // 3. Loop up to 3 sensors:
 for i := 0; i < 3; i++ {
-    sensor, ctx, _ := api.GenerateSensorData(context.Background(), &hyper.SensorInput{
+    res, _ := api.GenerateSensorData(context.Background(), &hyper.SensorInput{
         Abck: abck, Bmsz: bmsz, Version: "3", PageUrl: pageURL, UserAgent: ua,
         ScriptUrl: scriptURL, AcceptLanguage: al, IP: ip, Context: sensorContext,
         Script: scriptOnFirstIterationOnly,
     })
-    sensorContext = ctx
-    // POST {"sensor_data": sensor} to scriptURL; refresh abck/bmsz from jar
+    sensorContext = res.Context
+    // POST {"sensor_data": res.Payload} to scriptURL; refresh abck/bmsz from jar;
+    // send res.ClientHints per the client hints rules
     if akamai.IsCookieValid(abck, i) { break }
 }
 ```

@@ -88,7 +88,9 @@ them.
 5. **No duplicate cookies** — the same cookie name with two values in one request (a
    broken cookie jar) is a very common, hard-to-spot bug.
 6. **Never hardcode `sec-ch-ua-full-version-list`** (especially for DataDome) — the API
-   returns the correct value in its response `headers` object; replay that.
+   returns the device's client hints with each payload (`headers`; `clientHints` on
+   Kasada). Send those, and only the ones the site asked for in `Accept-CH` beyond the
+   three low-entropy hints (see `references/api-reference.md`).
 
 ### Capturing the real order — tooling
 

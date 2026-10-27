@@ -6,12 +6,14 @@ description: >-
   Use when working with the hyper-sdk (Go), hyper-sdk-py (Python), or hyper-sdk-js
   (JavaScript/TypeScript) SDKs, or calling the *.hypersolutions.co API directly;
   when generating sensor data, _abck / reese84 / ___utmvc / datadome cookies,
-  Kasada x-kpsdk-* tokens, sec-cpt (428) or SBSD (429) payloads, DataDome
+  Kasada x-kpsdk-* tokens, sec-cpt (428) or SBSD (429) payloads, Akamai-BM-Telemetry
+  headers, DataDome
   interstitial/slider/tags, or Vercel BotID x-is-human headers; and when
   debugging blocks, challenges, 403/428/429 responses, TLS fingerprinting, or
   header-order problems in request-based scraping. Triggers on: Hyper Solutions,
   hypersolutions, hyper-sdk, Akamai sensor, _abck, sec-cpt, sbsd, Incapsula,
-  reese84, utmvc, DataDome, Kasada, kpsdk, anti-bot bypass,
+  reese84, utmvc, DataDome, Kasada, kpsdk, Akamai-BM-Telemetry, client hints,
+  Accept-CH, anti-bot bypass,
   powhttp, HAR analysis, captured-request debugging, header order.
 ---
 
@@ -76,13 +78,18 @@ handle all of this for you. Full detail + code: `references/authentication.md`.
 
 | Language | Package | Construct |
 |---|---|---|
-| Go | `github.com/Hyper-Solutions/hyper-sdk-go/v3` | `hyper.NewSession("api-key")` |
-| Python | `hyper-sdk` (PyPI) | `Session("api-key")` / `SessionAsync("api-key")` |
-| JS/TS | `hyper-sdk-js` (npm) | `new Session("api-key")` |
+| Go | `github.com/Hyper-Solutions/hyper-sdk-go/v4` (v4.0.0+) | `hyper.NewSession("api-key")` |
+| Python | `hyper-sdk` (PyPI, 4.0.0+) | `Session("api-key")` / `SessionAsync("api-key")` |
+| JS/TS | `hyper-sdk-js` (npm, 5.0.0+) | `new Session("api-key")` |
 
-Minimum versions for the Akamai SBSD `context` field (`references/akamai.md`): Go **v3.0.0**
-(the import path is now `/v3`; v2 is deprecated), Python **3.0.0**, JS/TS **4.0.0**;
-`hyper-sdk-playwright` **1.0.0-beta.15** handles it automatically.
+These majors are the current SDKs: **every generate call returns a result object**
+(Go `*XResult`, Python dataclass, JS object) with `Payload`/`payload`, `Context`/`context`
+where the product chains, and the client hints (`ClientHints` / `client_hints` /
+`clientHints`), instead of positional values. Older majors (Go `/v3`, Python 3.x, JS 4.x)
+returned tuples; translate old snippets to the result objects. They also add the Akamai
+telemetry methods, SBSD `scriptUrl` and Kasada `strict`, and drop the SBSD `index`.
+`hyper-sdk-playwright` **1.0.0-beta.16** handles SBSD, the SBSD `scriptUrl` and the
+Akamai-BM-Telemetry header automatically.
 
 ```go
 // Go
@@ -113,7 +120,7 @@ Identify the anti-bot system, then open the matching reference file.
 
 | System | How to identify it | Reference |
 |---|---|---|
-| **Akamai** Bot Manager | `_abck` and `bm_sz` cookies; a `<script src="/xxxx/yyyy/...">` dynamic path near end of body. `428` = sec-cpt challenge; `429 {"t":...}` = SBSD block | `references/akamai.md` |
+| **Akamai** Bot Manager | `_abck` and `bm_sz` cookies; a `<script src="/xxxx/yyyy/...">` dynamic path near end of body. `428` = sec-cpt challenge; `429 {"t":...}` = SBSD block. API calls carrying an `Akamai-BM-Telemetry` header and no sensor POST = telemetry (section 5) | `references/akamai.md` |
 | **Incapsula/Imperva** | Cookie named `reese84` or an `x-d-token` header → reese84. A script like `/_Incapsula_Resource?SWJIYLWA=...` → utmvc. "Pardon Our Interruption" page → reese84 dynamic | `references/incapsula.md` |
 | **DataDome** | `403` with a body containing `var dd={...}`. `i.js` referenced → interstitial; `c.js` → slider. `datadome` cookie | `references/datadome.md` |
 | **Kasada** | `429` with HTML referencing `ips.js`; `x-kpsdk-*` headers/cookies (`tkrm_alpekz_*`). `x-is-human` header → Vercel BotID | `references/kasada.md` |
@@ -124,7 +131,7 @@ Identify the anti-bot system, then open the matching reference file.
 - **User agents & Chrome version** — Windows Chrome recommended (macOS Chrome also supported); when/how to bump the version; keep `sec-ch-ua` in sync → `references/tls-and-headers.md`.
 - **Compression** — enable it in **both** directions (request payload + response) on basically every call. Pick the codec by language support: **zstd** where it's well-supported (Go), **gzip** otherwise (Python, JS/TS). SDKs auto-compress payloads > 1000 bytes and their defaults already follow this (Go → zstd; Python/JS → gzip) → `references/api-reference.md`.
 - **Usage/quota** — `GET https://api.hypersolutions.co/usage` (personal-org API) for remaining quota.
-- **Response `headers` object** — most generate endpoints return a `headers` object of client hints (`sec-ch-ua-full-version-list`, `sec-ch-ua-platform`, etc.). **Replay these on the target site; never hardcode them.**
+- **Client hints**: the generate endpoints return the 24 Accept-CH client hints for the device the payload describes: under `headers` on Akamai (`/v2/sensor`, `/sbsd`, `/v1/telemetry`), DataDome and Incapsula reese84, under `clientHints` on Kasada `/payload` (its `headers` are the `x-kpsdk-*` values). The SDKs expose them as `ClientHints` / `client_hints` / `clientHints`. **Send them like Chrome:** `sec-ch-ua`, `sec-ch-ua-mobile`, `sec-ch-ua-platform` on every request; every other hint **only** if the site asked for it in its `Accept-CH` response header (cross-origin requests get only the three). Use the latest result's values, never hardcoded ones. Full rules: `references/api-reference.md` and https://docs.hypersolutions.co (Client Hints).
 
 ## Debugging
 
@@ -137,7 +144,8 @@ cookies, IP), not in the generated payload. The most common root causes, in orde
 3. Cookie-jar bugs (missing, duplicated, or wrong-domain cookies).
 4. `sec-ch-ua` / UA / platform version mismatch, or hardcoded client hints from a polluted
    browser capture (`Accept-CH` / `Sec-Fetch-Storage-Access` artifacts).
-5. Reusing a value that must be fresh (Kasada POW, Akamai context, tokens past renewal).
+5. Reusing a value that must be fresh (Kasada POW, Akamai context, an `Akamai-BM-Telemetry`
+   header, tokens past renewal).
 
 **Four debugging tools, best first:**
 
@@ -185,7 +193,7 @@ cookies, IP), not in the generated payload. The most common root causes, in orde
 |---|---|
 | `references/authentication.md` | `x-api-key`, JWT `x-signature`, organization headers, code for all 3 languages |
 | `references/tls-and-headers.md` | TLS fingerprinting, header order, pseudo-header order, common pitfalls, IP/proxy rules, Chrome-version policy, capture tooling |
-| `references/akamai.md` | Sensor flow (`_abck`), sec-cpt 428 (crypto/behavioral/adaptive), SBSD 429 (passive/hard/429), pixel, cookie-validity helpers |
+| `references/akamai.md` | Sensor flow (`_abck`), sec-cpt 428 (crypto/behavioral/adaptive), SBSD 429 (passive/hard/429, `scriptUrl`), pixel, Akamai-BM-Telemetry header (`/v1/telemetry`, get_params `j`), cookie-validity helpers |
 | `references/incapsula.md` | reese84, reese84 dynamic ("Pardon Our Interruption" + PoW), utmvc, captcha block |
 | `references/datadome.md` | interstitial, slider, tags, the `dd` object, `t:'bv'` hard block |
 | `references/kasada.md` | Flow 1 (block page) & Flow 2 (`/fp`), `/payload` `/cd` `/botid`, POW freshness, `/mfc`, Vercel BotID, supported UAs, mobile UA generation |

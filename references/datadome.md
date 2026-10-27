@@ -65,8 +65,9 @@ Extract from the `dd` object: `cid`, `hsh`, `s`, `b`.
 
 `userAgent` (Chrome Windows/macOS), `deviceLink` (from step 1), `html` (deviceLink GET body),
 `script` (**optional**, the challenge script body from step 2; omit it when the page inlines the script),
-`acceptLanguage`, `ip`. Returns `{payload, headers}` — replay the returned `headers` on
-subsequent requests. (JS ctor: `new InterstitialInput(userAgent, deviceLink, html, ip, acceptLanguage, script?)`.)
+`acceptLanguage`, `ip`. Returns `payload` plus the client hints (SDK `ClientHints` /
+`client_hints` / `clientHints`; API `headers`): send them on subsequent requests per the
+client hints rules in `references/api-reference.md`. (JS ctor: `new InterstitialInput(userAgent, deviceLink, html, ip, acceptLanguage, script?)`.)
 
 ---
 
@@ -102,14 +103,16 @@ Extract from the `dd` object: `cid`, `hsh`, `t`, `s`, `e`.
    → `puzzle`, the `.frag.png` → `piece`.
 4. **Generate the payload** via `POST /slider`.
 5. **GET the returned check URL** (`https://geo.captcha-delivery.com/captcha/check?cid=...`;
-   include the returned `headers`). Response: `{"cookie":"datadome=...; ...; SameSite=Lax"}`.
+   with the client hints the request is allowed: captcha-delivery is cross-origin, so only
+`sec-ch-ua`, `sec-ch-ua-mobile`, `sec-ch-ua-platform`). Response: `{"cookie":"datadome=...; ...; SameSite=Lax"}`.
    Update the cookie jar; retry. (`403` on the check = rejected.)
 
 ### `DataDomeSliderInput` fields
 
 `userAgent`, `deviceLink`, `html`, `script` (**optional**, the challenge script body from
 step 2a; omit it when the page inlines the script), `puzzle` (base64 jpg), `piece`
-(base64 frag.png), `parentUrl`, `acceptLanguage`, `ip`. Returns `{payload, headers}`.
+(base64 frag.png), `parentUrl`, `acceptLanguage`, `ip`. Returns `payload` (the check URL)
+plus the client hints.
 
 > JS ctor order: `new SliderInput(userAgent, deviceLink, html, puzzle, piece, parentUrl, ip, acceptLanguage, script?)`.
 
@@ -140,7 +143,7 @@ then with `type=le`. Update the `datadome` cookie manually.
 
 > JS ctor order: `new TagsInput(userAgent, ddk, referer, type, ip, acceptLanguage, version, cid?)`.
 
-Returns the tags payload string.
+Returns a result with the tags `payload` and the client hints.
 
 ---
 
