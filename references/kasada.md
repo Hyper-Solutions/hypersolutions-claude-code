@@ -67,8 +67,10 @@ Refresh tokens proactively.
 ### `KasadaPayloadInput` → `POST /payload`
 
 `userAgent` (Chrome Windows/macOS), `ipsLink` (ips.js link parsed from the 429 page), `script`
-(ips.js body), `acceptLanguage`, `ip` (optional), `strict` (optional bool, default false).
-(JS ctor: `new KasadaPayloadInput(userAgent, ipsLink, script, ip, acceptLanguage, strict?)`.)
+(ips.js body), `acceptLanguage`, `ip` (optional), `strict` (optional bool, default false),
+`dv` (optional, iOS app flow only: the `x-kpsdk-dv` you send to the site, see
+[x-kpsdk-dv](#mobile-x-kpsdk-dv)).
+(JS ctor: `new KasadaPayloadInput(userAgent, ipsLink, script, ip, acceptLanguage, strict?, dv?)`.)
 
 Output = a `KasadaPayloadResult`: `payload`, `headers` (`KasadaHeaders`: `x-kpsdk-ct`,
 `x-kpsdk-dt`, `x-kpsdk-v`, `x-kpsdk-r`, `x-kpsdk-dv`, `x-kpsdk-h`, `x-kpsdk-fc`,
@@ -147,11 +149,30 @@ Kasada also supports specific **mobile app** UAs (native iOS/Android app user-ag
 iPhoneXX,X`). If you're integrating a mobile app flow, ask Hyper Solutions whether your
 app's UA is supported.
 
-For mobile, the `x-kpsdk-dv` header is hardcoded (the API can't return it):
+### Mobile x-kpsdk-dv
+
+On iOS the Kasada SDK sends an `x-kpsdk-dv` header from the very first request, before the
+API is called, so the client builds it. It is base64 of a JSON object XORed with a key fixed
+in the Kasada SDK:
 ```
-QkZWEmcDRUBEDloaAg8GABpSDxVEX1JfXBRZRQF5VRoJFFozUQtXBABQGwEPHA==
-QkZWEmcDRUBEDloaAg8GABpRDxVEX1JfXBRZRQF5VRoJFFozUQtXBABRGwEPHA==
+{"osVersion":"18.0.1","hardwareId":"iPhone13,2","appId":"com.example.app","appVersion":"9.15.0"}
 ```
+`hardwareId` is the model identifier from `utsname.machine` (`iPhone13,2` is an iPhone 12),
+not the marketing name. `appId` and `appVersion` are the same bundle id and app version the
+hashed user-agent below is built from; from Kasada SDK `i-2.x` (the `x-kpsdk-v` value) they
+are required, and a header without them is rejected.
+
+Generate it locally with `GenerateDV(osVersion, hardwareID, appID, appVersion)` (Go
+`kasada`) / `generate_kasada_dv(os_version, hardware_id, app_id, app_version)` (Py) /
+`generateKasadaDv({ osVersion, hardwareId, bundleId, appVersion })` (JS). Example values
+above → `QkZWEmcDRUBEDloaAg8FDhpTAwhEGxFFWRFcQAVCVHFXFAlBUDRRDl8DBgABUxYUGkxERn0HDwNEVFxAFgZAVglAXV0dV0MTG0gbAEEWYVZfEl1XVg8OFA1NHAxIBxFQ`.
+If you captured the header from the app you emulate, send that exact value instead.
+
+Then send the same value as `dv` on `POST /payload`: the API generates the payload on a real
+iPhone with that model's screen and iOS version, so the payload and the header agree.
+Without `dv` it picks a device from the iOS version in the user-agent (any recent iPhone for
+the hashed form). A `dv` that does not decode is a 400 `invalid dv`. Build the user-agent and
+the `dv` from the same values.
 
 ### Mobile app user-agent generation
 

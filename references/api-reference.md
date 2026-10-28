@@ -100,7 +100,7 @@ field styles: **Go** = struct with `json` tags; **Python** = keyword args (snake
 new SbsdInput(uuid, o_cookie, pageUrl, userAgent, script, ip, acceptLanguage, context?, scriptUrl?)
 new TelemetryInput(abck, bmsz, pageUrl, userAgent, ip, acceptLanguage, context, script, scriptUrl, j?)
 new TelemetryParamsInput(pageUrl, script?, context?)
-new KasadaPayloadInput(userAgent, ipsLink, script, ip, acceptLanguage, strict?)
+new KasadaPayloadInput(userAgent, ipsLink, script, ip, acceptLanguage, strict?, dv?)
 new Reese84Input(userAgent, ip, acceptLanguage, pageUrl, script, scriptUrl, pow?)
 new InterstitialInput(userAgent, deviceLink, html, ip, acceptLanguage, script?)
 new SliderInput(userAgent, deviceLink, html, puzzle, piece, parentUrl, ip, acceptLanguage, script?)
