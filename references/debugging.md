@@ -6,8 +6,10 @@ gets blocked is almost always a TLS / header / IP / cookie problem in your own c
 
 ## Triage: first five questions
 
-1. **Does the API return a payload with an empty `error`?** If `error` is non-empty, the
-   inputs are wrong (see "API-side errors" below) — fix inputs, not your HTTP client.
+1. **Does the API return a payload with an empty `error`?** A `401`, `402` or `403` with a
+   `code` is the key, plan or whitelist refusing you (see "Refusals: 401, 402, 403"
+   below). Any other non-empty `error` means the inputs are wrong (see "API-side errors"
+   below): fix inputs, not your HTTP client.
 2. **Are you using a browser-grade TLS client** (not `requests`/`axios`/`net/http`)?
 3. **Is your header order captured from the real wire** (via powhttp — it preserves wire
    order; Charles/DevTools normalize it)?
@@ -29,7 +31,7 @@ If 2–5 aren't all "yes", fix those first — see `references/tls-and-headers.m
 | DataDome/others reject despite correct UA | Hardcoded `sec-ch-ua-full-version-list` | Send the client hints the API returns (`headers`; `clientHints` on Kasada); never hardcode them |
 | Blocked after adding client hints | Sending every hint on every request, or high-entropy hints the site never asked for | `sec-ch-ua`, `-mobile`, `-platform` always; others only when the origin's `Accept-CH` lists them; cross-origin requests only the three |
 | Large-body request rejected or slow | Uncompressed utmvc/Kasada payload | Compress (zstd/gzip/br) + set `content-encoding`; SDKs auto-compress > 1000 bytes |
-| `missing api key` / signature errors | Missing `x-api-key`, or expired/wrong JWT | Set `x-api-key`; check JWT `exp` (short-lived) and the signing key; see `authentication.md` |
+| API answers `401`, `402` or `403` | The key, plan, balance or domain whitelist refuses the request | Read the `code` in the body; see "Refusals: 401, 402, 403" below |
 
 ## API-side errors (non-empty `error` in the response)
 
@@ -47,6 +49,54 @@ for a script no client has sent yet. The SDKs resend the request with the script
 own, so it only shows up in raw HTTP integrations or in a captured trace, once per new
 script version. Do not debug it; repeat the request with `script` (see
 `references/api-reference.md`, Script hashes).
+
+## Refusals: 401, 402, 403
+
+When the API refuses a request because of the API key, plan, balance or domain whitelist,
+it answers with a status code and a body naming the reason:
+
+```json
+{
+  "error": "Your account has no active akamai plan and no pay-as-you-go balance.",
+  "code": "no_plan_or_balance",
+  "docs": "https://docs.hypersolutions.co/api-reference/errors#no_plan_or_balance"
+}
+```
+
+Match on `code`, which is stable; `error` is readable text that can be reworded, and is
+what the SDKs show as the error message. `docs` links to the entry for that code. None of
+these is a problem with the payload inputs or the HTTP client: do not retry or change the
+request body, fix the account or key.
+
+| Status | `code` | Fix |
+|---|---|---|
+| `401` | `missing_api_key` | Send the `x-api-key` header (see `authentication.md`) |
+| `401` | `malformed_api_key` | The header is not a UUID API key; recopy it without spaces or quotes |
+| `401` | `invalid_api_key` | No such key; copy it again from https://hypersolutions.co/keys |
+| `401` | `missing_signature` | The key enforces JWT signing; send `x-signature` |
+| `401` | `invalid_signature` | `x-signature` does not verify (often expired): sign a fresh JWT per request with the key's JWT secret and the API key in the `key` claim |
+| `401` | `missing_app_signature` | `x-app-key` sent without `x-app-signature`; organization requests need both |
+| `401` | `invalid_app_key` | No organization has this `x-app-key` |
+| `401` | `invalid_app_signature` | `x-app-signature` does not verify against the app secret, or has expired |
+| `402` | `no_plan_or_balance` | No plan for this product and no pay-as-you-go balance. Also the answer when the only plan is for a different product (e.g. a DataDome plan used for Akamai) |
+| `402` | `plan_exhausted` | The product's plan used all its requests and there is no balance; upgrade, wait for renewal, or top up |
+| `402` | `plan_expired` | The product's plan expired and there is no balance; renew or top up |
+| `402` | `balance_exhausted` | Pay-as-you-go balance used up and no plan for this product |
+| `402` | `balance_expired` | The remaining balance is older than one year and no plan for this product |
+| `403` | `api_key_disabled` | Enable the key or create a new one at https://hypersolutions.co/keys |
+| `403` | `product_not_enabled` | The account has a plan or balance but not access to this product; contact support |
+| `403` | `not_organization_member` | The API key's account is not a member of the organization in `x-app-key` |
+| `403` | `organization_product_not_enabled` | The organization in `x-app-key` has no access to this product |
+| `403` | `no_domains_whitelisted` | The account (or, with organization headers, the organization) has no whitelisted domains; request one from the dashboard |
+| `403` | `domain_not_whitelisted` | The domain named in the message, taken from the request's page URL, is not whitelisted. `example.com` does not cover `www.example.com` |
+| `403` | `access_denied` | The reason could not be determined at that moment (e.g. right after a purchase); retry after a few seconds, then contact support with the request time |
+
+Requests sent with an organization's `x-app-key` use the user's own plan or balance, and
+access a user has through an organization only applies to requests sent with that
+organization's headers. A user with no products of their own gets `no_plan_or_balance` or
+`product_not_enabled` without them; the message says so.
+
+Full reference: https://docs.hypersolutions.co/api-reference/errors
 
 Fix by logging each input right before the call and confirming it matches what a browser
 would have at that step.
