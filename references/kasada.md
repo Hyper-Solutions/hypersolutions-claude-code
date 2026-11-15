@@ -52,6 +52,17 @@ on the ips.js and `/tl` requests. Then protected endpoints require:
 - **`x-kpsdk-cd`** header (if the browser sends it) — a POW that **must be freshly
   generated for every single request. Reusing POW values will cause failures.**
 
+**ips.js answers `KPSDK:DONE` instead of the challenge:** the session is already solved.
+The body is a short script like
+`KPSDK.message='KPSDK:DONE:<ct>::<cr>:2:<st>:<r>';if(window.parent){window.parent.postMessage(...)}`,
+the same message ips.js posts to the page after a passed `/tl`. A browser takes the token
+from it and never calls `/tl`, so do the same: **skip `/payload` and `/tl`** (the API answers
+this body with `400` `Script already solved`). Split on `:`; field 2 is `x-kpsdk-ct`
+(URL-decode it) and field 6 is `x-kpsdk-st`. Use them exactly like the `/tl` response headers:
+`x-kpsdk-ct` on protected requests, `ct` + `st` for `/cd`. Keep the existing cookies, then
+`/mfc` if the site uses it. If field 2 is empty, request `/fp` once more (the browser retries
+once, then continues without a token); a second empty token means start a fresh session.
+
 **Optional `/mfc` step:** if the browser GETs `/mfc`, do it after `/tl` and before
 protected requests (include Kasada cookies). It sends `x-kpsdk-h:01` and `x-kpsdk-v`, and
 you read back `x-kpsdk-fc` (feature config — needed as the `fc` POW input on `/mfc`
@@ -200,6 +211,7 @@ Python 4.0.0, JS 5.0.0).
 | Code | Meaning | Action |
 |---|---|---|
 | `429` | Challenge (homepage in Flow 1, `/fp` in Flow 2, or a protected endpoint when tokens expire) | Run/re-run the payload → `/tl` → POW flow |
+| API `400` "Script already solved" | The body sent as `script` is a `KPSDK:DONE` message, not ips.js | Skip `/payload` and `/tl`; take `x-kpsdk-ct` (field 2) and `x-kpsdk-st` (field 6) from the message |
 | API `500` "refusing payload because strict was set" | `strict` on and the script has an unidentified signal | Retry later or without `strict` |
 | `200` `{"reload":true}` on `/tl` | Challenge accepted | Save `x-kpsdk-ct`/`x-kpsdk-st` + cookies, retry original |
 
