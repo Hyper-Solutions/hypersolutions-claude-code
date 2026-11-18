@@ -21,7 +21,8 @@ Concise principles for reasoning about a **live capture** (powhttp) or a request
 
 How a real Chrome differs from a stock HTTP library. Check these on every in-scope request:
 
-- **Header case:** all-lowercase on HTTP/2; Title-Case on HTTP/1.1.
+- **Header case:** all-lowercase on HTTP/2. On HTTP/1.1 Chrome's casing is fixed per header:
+  Title-Case for most (`User-Agent`, `Accept`), lowercase for the `sec-ch-ua` client hints.
 - **Pseudo-header order (HTTP/2):** Chrome = `:method :authority :scheme :path` (Firefox and
   Safari differ — see below). Stable per browser and a strong signal — only visible via
   powhttp, never a HAR.

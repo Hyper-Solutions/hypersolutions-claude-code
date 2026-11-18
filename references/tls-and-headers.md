@@ -67,7 +67,8 @@ them.
 
 ### Common header-order pitfalls (these cause silent blocks)
 
-1. **Header case**: HTTP/1.1 uses `Title-Case`; HTTP/2 uses `lowercase`. Sending the
+1. **Header case**: HTTP/2 uses `lowercase`. On HTTP/1.1 Chrome's casing is fixed per header:
+   `Title-Case` for most (`User-Agent`, `Accept`), lowercase for the `sec-ch-ua` client hints. Sending the
    wrong case is a fingerprint mismatch.
 2. **Never manually set `Content-Length`** — the client computes it. Setting it manually
    sends it twice and fails the request.
